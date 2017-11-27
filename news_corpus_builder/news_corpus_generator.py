@@ -73,23 +73,24 @@ class NewsCorpusGenerator(object):
     def generate_corpus(self,articles):
         
         # TODO parallelize extraction process
-        print 'Extracting  content from links...'
+        print 'Extracting content from links...'
 
         for article in articles:
             category = article[0]
             link = article[1]
 
-	    ex_article = None
+            ex_article = None
 
-	    try:
-            	ex_article = self.g.extract(url=link)
-	    except Exception:
-		print('failed to extract article..')
-		continue
+            try:
+                ex_article = self.g.extract(url=link)
+            except Exception:
+                print('failed to extract article..')
+                continue
 
             ex_title = ex_article.title
             ex_body = ex_article.cleaned_text
-	    #print ex_title
+            ex_source_url = link.split('&url=')[-1]
+            #print ex_title
             #print ex_body
             #sys.exit(1)
 
@@ -97,8 +98,11 @@ class NewsCorpusGenerator(object):
                 self.stats['empty_body_articles'] += 1
                 continue
 
-            self._save_article({'title':ex_title, 'body': ex_body,
-                'category':category})
+            self._save_article({
+              'title': ex_title, 
+              'body': ex_body, 
+              'category': category, 
+              'source': ex_source_url})
 
     def _save_article(self,clean_article):
 
@@ -175,7 +179,7 @@ class NewsCorpusGenerator(object):
             print 'Creating schema...'
             conn = sqlite3.connect(db)
             cur = conn.cursor()
-            cur.execute("create table articles (Id INTEGER PRIMARY KEY,category, title,body)")
+            cur.execute("create table articles (Id INTEGER PRIMARY KEY,category, title, body, source)")
             cur.execute("CREATE UNIQUE INDEX uni_article on articles (category,title)")
             conn.close()
 
@@ -185,8 +189,8 @@ class NewsCorpusGenerator(object):
         with conn:
             cur = conn.cursor()   
             try:
-                cur.execute("INSERT INTO articles (Id,category,title,body)\
-                    VALUES(?, ?, ?,?)",(None,clean_article['category'],clean_article['title'],clean_article['body']))
+                cur.execute("INSERT INTO articles (Id,category,title,body,source)\
+                    VALUES(?, ?, ?,?)",(None,clean_article['category'],clean_article['title'],clean_article['body'],clean_article['source']))
             except sqlite3.IntegrityError:
                 self.stats['not_insert_db'] += 1
                 print 'Record already inserted with title %s ' %(clean_article['title'].encode("utf-8"))
